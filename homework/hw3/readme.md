@@ -1,5 +1,4 @@
-~ number: 3
-~ title: Object-Oriented Programming
+#Object-Oriented Programming
 
 This homework is intended to reinforce various OOP concepts and give you more practice with linked lists before the midterm. Parts 2, 3, and 4 will cover material up through Friday's (Feb 13th) lecture. 
 
