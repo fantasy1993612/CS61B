@@ -1,5 +1,4 @@
-~ number: 2
-~ title: Bit Operations, Pointers, Linked Lists
+# Bit Operations, Pointers, Linked Lists
 
 # Navigation #
 
