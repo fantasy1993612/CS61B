@@ -1,5 +1,4 @@
-~ number: 4
-~ title: Packages, Abstract Classes, Interfaces
+# Packages, Abstract Classes, Interfaces
 
 Table of Contents
 ----------------
