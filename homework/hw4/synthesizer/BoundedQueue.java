@@ -1,4 +1,4 @@
-//package  synthesizer;
+package  synthesizer;
 
 public interface BoundedQueue{
 

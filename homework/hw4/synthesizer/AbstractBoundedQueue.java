@@ -1,4 +1,4 @@
-//package  synthesizer;
+package  synthesizer;
 
 public abstract class AbstractBoundedQueue implements BoundedQueue{
 	
@@ -22,18 +22,10 @@ public abstract class AbstractBoundedQueue implements BoundedQueue{
 
 	public boolean isEmpty(){
 
-		if(fillCount == 0){
-			return true;
-		}else{
-			return false;
-		}
+		 return (fillCount == 0);
 	}
 
 	public boolean isFull(){
-		if(fillCount == capacity){
-			return true;
-		}else{
-			return false;
-		}
+		return (fillCount == capacity);
 	}
 }

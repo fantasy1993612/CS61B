@@ -1,5 +1,5 @@
 // Make sure to make this class a part of the synthesizer package
-//package synthesizer;
+package  synthesizer;
 
 public class ArrayRingBuffer extends AbstractBoundedQueue {
   /* Index for the next dequeue or peek. */
@@ -16,8 +16,7 @@ public class ArrayRingBuffer extends AbstractBoundedQueue {
     //       this.capacity should be set appropriately. Note that the local variable
     //       here shadows the field we inherit from AbstractBoundedQueue.
     this.rb = new double[capacity];
-    this.first = 0;
-    this.last = 0;
+    first = last = fillCount = 0;
     this.capacity = capacity;
   }
 
@@ -27,26 +26,13 @@ public class ArrayRingBuffer extends AbstractBoundedQueue {
   public void enqueue(double x) {
     // TODO: Enqueue the item. Don't forget to increase fillCount and update last.
     // is there room?
-    int oldLast = this.last;
-
-    if(!this.isFull()){
-
-      this.rb[this.last] = x;
-      fillCount = fillCount + 1; 
-
-      if(this.last == this.capacity - 1){
-        this.last = 0;
-      }else{
-        this.last = oldLast + 1;
-      }
-     
-    }else {
+     if (isFull()) {
       throw new RuntimeException("Ring buffer overflow");
     }
-
+    // add to buffer, move end pointer, check for wraparound
     rb[last] = x;
-    last = last + 1;
-   
+    fillCount = fillCount + 1;
+    last = (last + 1) % rb.length;
 
   }
 
@@ -55,26 +41,24 @@ public class ArrayRingBuffer extends AbstractBoundedQueue {
     */
   public double dequeue() {
     // TODO: Dequeue the first item. Don't forget to decrease fillCount and update first.
-    int oldFirst = 0;
-
-    if(!isEmpty()){
-      fillCount = fillCount - 1;  
-      if(this.first == this.capacity - 1){
-        this.first = 0;
-      }else{
-        this.first = oldFirst + 1;
-      }
-
-      return rb[oldFirst];
-    }else{
+   if (isEmpty()) {
       throw new RuntimeException("Ring buffer underflow");
     }
+    // save item to be returned, move first pointer, wrap?
+    double temp = rb[first];
+    fillCount = fillCount - 1;
+    first = (first + 1) % rb.length;
+    // return saved element
+    return temp;
     
   }
 
   /** Return oldest item, but don't remove it. */
   public double peek() {
     // TODO: Return the first item. None of your instance variables should change.
+    if (isEmpty()) {
+      throw new RuntimeException("Ring buffer underflow");
+    }
     return rb[first];
   }
 
