@@ -1,5 +1,3 @@
-~ number: 1
-~ title: NBody Simulation (BETA)
 
 Navigation
 -----------------
