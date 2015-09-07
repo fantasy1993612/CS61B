@@ -1,0 +1,25 @@
+
+class Shuffle {
+
+	public static void shuffleCheck(int M,int N){
+		double[] a = new double[M];
+		for(int i = 0; i < M; i++){
+			a[i] = i;
+		}
+		for(int i = 0 ; i < N;i++){
+
+			StdRandom.shuffle(a);
+
+			for(int i = 0; i < M; i++){
+				System.out.print(a[i]+" ");
+				if(M% i == 0)
+					System.out.println("");
+			
+			}
+		}
+	}
+
+	public static void main(String[] args){
+		shuffleCheck(5,4);
+	}
+}
