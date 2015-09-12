@@ -13,6 +13,8 @@ public class Gitlet implements Serializable{
 	private Map<String,Branch> branchToCommit;
 	private Map<Integer,Branch> gitBranch;
 	private List<String> addList;
+	private List<String> removeFiles;
+	private List<Integer> rebaseBranch;
  	
 	public Gitlet(){
 		lastCommitedId = -1;
@@ -20,6 +22,8 @@ public class Gitlet implements Serializable{
 		branchToCommit = new HashMap<String,Branch>();
 		addList = new LinkedList<String>();
 		gitBranch = new HashMap<Integer,Branch>();
+		removeFiles = new LinkedList<String>();
+		rebaseBranch = new LinkedList<Integer>();
 
 	}
 
@@ -71,6 +75,12 @@ public class Gitlet implements Serializable{
 			System.out.println("This file has already been added");
             return;
 		}
+
+		for(String removal : removeFiles){
+			if(removal.equals(fileName)){
+				removeFiles.remove(removal);
+			}
+		}
 		//if the file exists,compare the content,if have the same content do nothing
 		//else add the staged file
 		
@@ -121,8 +131,8 @@ public class Gitlet implements Serializable{
 	 	int branchCommitId = branchToCommit.get(branchName).getCurCommitedId();
 	 	Branch curCommit;
 	 	Map<String,String> lastCommitedFiles;
-	 	System.out.println(branchCommitId);
 
+	 	//if you switch branch get the last commit version
 	 	if(lastCommitedId != branchCommitId){
 	 		 curCommit = new Branch(curCommitedId,branchCommitId,message,curDate);
 	 		 lastCommitedFiles = gitBranch.get(branchCommitId).getAllCommitedFiles();
@@ -131,6 +141,7 @@ public class Gitlet implements Serializable{
 	 		 lastCommitedFiles = gitBranch.get(lastCommitedId).getAllCommitedFiles();
 	 	}
 
+	 	//get the last version files
 	 	for(String filename : lastCommitedFiles.keySet()){
 	 		if(!addList.contains(filename)){
 	 			curCommit.addFile(filename,lastCommitedFiles.get(filename));
@@ -160,6 +171,7 @@ public class Gitlet implements Serializable{
 	public void rm(String fileName){	
 		for(int i = 0;i < addList.size();i++){
 			if(addList.get(i).equals(fileName)){
+				removeFiles.add(fileName);
 				addList.remove(i);
 			}
 		}
@@ -197,7 +209,9 @@ public class Gitlet implements Serializable{
 			logString.append("\n");
 			logString.append("Commit");
 			logString.append(commitedId);
+			logString.append("\n");
 			logString.append(gitBranch.get(commitedId).getCommitDate());
+			logString.append("\n");
 			logString.append(gitBranch.get(commitedId).getCommitMessage());
 			logString.append("\n");
 			logString.append("\n");
@@ -265,9 +279,82 @@ public class Gitlet implements Serializable{
       and marks the current branch with a *. 
       Also displays what files have been staged or marked for removal. 
       An example of the exact format it should follow is as follows.*/
+      /*
+	   === Branches ===
+		*master
+		other-branch
+
+		=== Staged Files ===
+		wug.txt
+		some_folder/wugs.txt
+
+		=== Files Marked for Removal ===
+		goodbye.txt
+      */
       public void status(){
+      	System.out.println("=== Branches ===");
+      	
+
+      	for(String branchname : branchToCommit.keySet()){
+      		if(branchname == branchName){
+      			System.out.println("*"+branchname);
+      			continue;
+      		}
+      		System.out.println(branchname);
+      	}
+      	System.out.print("\n");
+      	System.out.println("=== Staged Files ===");
+
+      	for(String stagedFile : addList){
+      		System.out.println(stagedFile);
+      	}
+      	System.out.print("\n");
+      	System.out.println("=== Files Marked for Removal ===");
+
+      	for(String removal : removeFiles){
+      		System.out.println(removal);
+      	}
+
+      	System.out.print("\n");
+      }
+
+      public void rebase(String branchname){
+
+      	int branchNameId1 = branchToCommit.get(branchname).getCurCommitedId();
+      	int branchNameId2 = branchToCommit.get(branchName).getCurCommitedId();
+     
+
+      	rebaseBranch.add(branchNameId2);
+      	checkBranch(branchname);
+
+      	while(branchNameId1 >= 0 && branchNameId2 >= 0){
+      		if(gitBranch.get(branchNameId1).getLastCommitedId() == gitBranch.get(branchNameId2).getLastCommitedId()){
+
+      			for(int i = rebaseBranch.size() -1 ; i >= 0 ; i--){
+      				Map<String,String> commitedFiles = new HashMap<String,String>();
+
+      				commitedFiles = gitBranch.get(rebaseBranch.get(i)).getAllCommitedFiles();
+      				String commitMessage = gitBranch.get(rebaseBranch.get(i)).getCommitMessage();
+
+      				for(String file : commitedFiles.keySet()){
+	      				addList.add(file);
+	      			}
+
+	      			commit(commitMessage);
+      			}
+      			break;
+      		}
+
+      		branchNameId1 = gitBranch.get(branchNameId1).getLastCommitedId();
+      		branchNameId2 = gitBranch.get(branchNameId2).getLastCommitedId();
+      		rebaseBranch.add(branchNameId2);
+      	}
+
+      	checkBranch(branchName);
+      	
 
       }
+
       /*
       public merge(String branchname){
 		int curCommitId = lastCommitedId + 1;
@@ -386,11 +473,20 @@ public class Gitlet implements Serializable{
 				break;
 			case "log": String logcontent = git.log(); System.out.println(logcontent);
 				break;
+			case "global-log": String log = git.globalLog(); System.out.println(log);
+				break;
 			case "checkout": git.checkBranch(args[1]);
 				break;
 			case "branch": git.branch(args[1]);
 				break;
-			//case "checkout": git.checkBranch(args[1]);
+			case "remove": git.rm(args[1]);
+				break;
+			case "status": git.status();
+				break;
+			case "find": git.find(args[1]);
+				break;
+			case "rebase": git.rebase(args[1]);
+				break;
 			default: System.out.println("error command");
 				break;
 		}
