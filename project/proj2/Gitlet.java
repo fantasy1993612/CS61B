@@ -6,20 +6,289 @@ import java.util.Date;
 
 public class Gitlet implements Serializable{
 
-	List<String> addList;
+	
 	private int lastCommitedId;
-	private static String GitPath = ".gitlet";
-	Map<Integer,List<String>> gitLog;
-	Map<String,Integer> findCommitId;
-
+	private static String GitPath = "gitlet";
+	private String branchName;
+	private Map<String,Branch> branchToCommit;
+	private Map<Integer,Branch> gitBranch;
+	private List<String> addList;
+ 	
 	public Gitlet(){
 		lastCommitedId = -1;
+		branchName = "master";
+		branchToCommit = new HashMap<String,Branch>();
 		addList = new LinkedList<String>();
-		gitLog = new HashMap<Integer,List<String>>();
-		findCommitId = new HashMap<String,Integer>();
+		gitBranch = new HashMap<Integer,Branch>();
 
 	}
 
+	/*
+	Usage: java Gitlet init
+	Creates a new gitlet version control system in the current directory. 
+	This system will automatically start with one commit: a commit that contains no files 
+	and has the commit message initial commit.
+	RunTime: O(1)
+	*/
+	public void init(){
+		File gitFile = new File(GitPath);
+		if(gitFile.exists()){
+			System.out.println("A gitlet version control system already exists in the current directory.");
+		}else{
+			gitFile.mkdir();
+		}
+
+		int curCommitId = lastCommitedId + 1;
+		File initial = new File(GitPath+"/"+curCommitId);
+	    initial.mkdir();
+		String curDate = getTime();
+		Branch initialCommit = new Branch(curCommitId,lastCommitedId,"initial commit",curDate);
+	    lastCommitedId = curCommitId;
+	    branchToCommit.put(branchName,initialCommit);
+	    gitBranch.put(lastCommitedId,initialCommit);
+	}
+
+	/*
+	 Usage: java Gitlet add [file name]
+	 Indicates you want the file to be included in the upcoming commit as having been changed.
+	 Adding a file is also called staging the file. If the file had been marked for removal, 
+	 instead just unmark it.
+	 RunTime: O(N)
+	*/
+	public void add(String fileName){
+
+		if(fileName.equals("")){
+			System.out.println("Please input correct file name");
+			return;
+		}
+
+		File stagedFile = new File(fileName);
+		if(!stagedFile.exists()){
+			System.out.println("file does not exists");
+		}
+
+		if(addList.contains(fileName)){
+			System.out.println("This file has already been added");
+            return;
+		}
+		//if the file exists,compare the content,if have the same content do nothing
+		//else add the staged file
+		
+		if(gitBranch.get(lastCommitedId).containsFile(fileName)){
+			String commitedFileName = gitBranch.get(lastCommitedId).getFilePath(fileName);
+			try{
+				Path path1 = Paths.get(commitedFileName);//!!!
+				Path path2 = Paths.get(fileName); 
+				if(isSameContent(path1,path2)){
+					System.out.println("This file hasn't been changed since last commit");
+					return;
+				}
+			}catch(IOException e){
+				e.printStackTrace();
+			}
+		}
+		
+		
+		addList.add(fileName);
+
+	} 
+
+	/*
+	 Saves a snapshot of certain files that can be viewed or restored at a later time.
+	 The files in a commit's snapshot come from two sources: files that were newly added 
+	 to this commit (staged prior to the commit), and files that were inherited from the previous commit.
+	 We'll refer to these two groups of files as "the commit's added files" and "the commit's old files" 
+	 respectively. In general, a new commit inherits all of the files in the previous commit as its old files
+	 (both the previous commit's added and old files). However, don't inherit files that were added to the new 
+	 commit, becuase the added file takes precedent over the old one. Remember that adding a file indicates you 
+	 want to save a new version of the file, so if you added the file it means that you don't need the old version 
+	 anymore.
+	 RunTime: O(N)
+	*/
+	 public void commit(String message){
+	 	
+	 	if(message.equals("null")){
+	 		System.out.println("Please enter a commit message");
+	 	}else if(addList.size() == 0){
+	 		System.out.println("There are no file to commit");
+	 		return;
+	 	}
+
+	    int curCommitedId = lastCommitedId + 1;
+
+	 	makeDir(GitPath + "/" + curCommitedId);
+	 	String curDate = getTime();
+	 	int branchCommitId = branchToCommit.get(branchName).getCurCommitedId();
+	 	Branch curCommit;
+	 	Map<String,String> lastCommitedFiles;
+	 	System.out.println(branchCommitId);
+
+	 	if(lastCommitedId != branchCommitId){
+	 		 curCommit = new Branch(curCommitedId,branchCommitId,message,curDate);
+	 		 lastCommitedFiles = gitBranch.get(branchCommitId).getAllCommitedFiles();
+	 	}else{
+	 		 curCommit = new Branch(curCommitedId,lastCommitedId,message,curDate);
+	 		 lastCommitedFiles = gitBranch.get(lastCommitedId).getAllCommitedFiles();
+	 	}
+
+	 	for(String filename : lastCommitedFiles.keySet()){
+	 		if(!addList.contains(filename)){
+	 			curCommit.addFile(filename,lastCommitedFiles.get(filename));
+	 		}
+	 	}
+		
+	 	for(String stagedFile : addList){
+	 		String[] s = stagedFile.split("\\/");
+	 		curCommit.addFile(s[s.length-1],GitPath+"/"+curCommitedId+"/"+s[s.length-1]);
+	 		File sourceFile = new File(stagedFile);
+            File targetFile = new File(GitPath + "/"+curCommitedId + "/" + s[s.length-1]);
+            try {
+                Files.copy(sourceFile.toPath(), targetFile.toPath(),
+                        StandardCopyOption.REPLACE_EXISTING);
+            } catch (IOException e) {
+                System.out.println("There occurs an IOEception when commiting files");
+            }
+	 	}
+
+	 	gitBranch.put(curCommitedId,curCommit);
+	 	branchToCommit.put(branchName,curCommit);
+	 	lastCommitedId = curCommitedId;
+	 	addList = new LinkedList<String>();//ready to make a new version 
+	}
+
+	 /*remove file on stage*/
+	public void rm(String fileName){	
+		for(int i = 0;i < addList.size();i++){
+			if(addList.get(i).equals(fileName)){
+				addList.remove(i);
+			}
+		}
+	}
+
+	/*log*/
+	public String log(){
+		//int commitedId = lastCommitedId;
+		StringBuilder logString = new StringBuilder();
+		int commitedId  = branchToCommit.get(branchName).getCurCommitedId();
+		while(commitedId >= 0){
+			logString.append("====");
+			logString.append("\n");
+			logString.append("Commit ");
+			logString.append(commitedId);
+			logString.append("\n");
+			logString.append(gitBranch.get(commitedId).getCommitDate());
+			logString.append("\n");
+			logString.append(gitBranch.get(commitedId).getCommitMessage());
+			logString.append("\n");
+			logString.append("\n");
+			commitedId = gitBranch.get(commitedId).getLastCommitedId();
+		}
+
+		return logString.toString();
+	}
+
+	/*log*/
+	public String globalLog(){
+		int commitedId = lastCommitedId;
+		StringBuilder logString = new StringBuilder();
+		
+		while(commitedId >= 0){
+			logString.append("====");
+			logString.append("\n");
+			logString.append("Commit");
+			logString.append(commitedId);
+			logString.append(gitBranch.get(commitedId).getCommitDate());
+			logString.append(gitBranch.get(commitedId).getCommitMessage());
+			logString.append("\n");
+			logString.append("\n");
+			commitedId--;
+		}
+
+		return logString.toString();
+		
+	}
+
+	/*print out the id when gives the commit message*/
+	public void find(String message){
+		int curCommitId = lastCommitedId;
+        boolean hasFind = false;
+        while (curCommitId != -1) {
+            if (gitBranch.get(curCommitId).getCommitMessage().equals(message)) {
+                System.out.println(curCommitId);
+                hasFind = true;
+            }
+            curCommitId = curCommitId - 1;
+        }
+        if (!hasFind) {
+            System.out.println("Found no commit with that message");
+        }
+	}
+
+	
+	public void checkout(String fileName){
+		String[] s = fileName.split("\\/");
+		String path = branchToCommit.get(branchName).getFilePath(s[s.length-1]);
+		File target = new File(fileName);
+	 	File source = new File(path);
+	 	try{
+		 	Files.copy(source.toPath(),target.toPath(),StandardCopyOption.REPLACE_EXISTING);
+		 }catch(IOException e){
+		 	System.out.println("There occurs an IOEception when commiting files");
+		 }
+	}
+
+	/*2.Restores all files in the working directory to their versions 
+	in the commit at the head of the given branch. Considers the given 
+	branch to now be the current branch. */
+	public void checkBranch(String branchname){
+		
+		branchName = branchname;
+
+	}
+
+	/*branch */
+	public void branch(String branchname){
+		if(branchname.equals("") || branchname == null){
+			System.out.println("enter the branch name");
+		}
+
+		for(String branch : branchToCommit.keySet()){
+			if(branch.equals(branchname)){
+				System.out.println("A branch with that name already exists.");
+            	return;
+			}
+		}
+		branchToCommit.put(branchname,branchToCommit.get(branchName));	
+	}
+
+	/*Displays what branches currently exist, 
+      and marks the current branch with a *. 
+      Also displays what files have been staged or marked for removal. 
+      An example of the exact format it should follow is as follows.*/
+      public void status(){
+
+      }
+      /*
+      public merge(String branchname){
+		int curCommitId = lastCommitedId + 1;
+		Map<String,String> branchCommitFiles = new HashMap<String,String>();
+		Map<String,String> masterCommitFiles = new HashMap<String,String>();
+
+		branchCommitFiles = branchToCommit.get(branchname).getAllCommitedFiles();
+		masterCommitFiles = branchToCommit.get("master").getAllCommitedFiles();
+
+		for(String file : branchCommitFiles){
+			add(file);
+		}
+
+		for(String file : masterCommitFiles){
+			add(file);
+		}
+
+		commit("merge " + branchname);
+
+	  }
+	*/
 	/*save all the information with object*/
 	public static void saveGit(Gitlet saveGit){
 		try{
@@ -53,6 +322,7 @@ public class Gitlet implements Serializable{
 		return readGit;
 	}
 
+	
 	/*make directory*/
 	private void makeDir(String fileName){
 		File gitFileName = new File(fileName);
@@ -93,168 +363,6 @@ public class Gitlet implements Serializable{
 
 	}
 
-	/*
-	Usage: java Gitlet init
-	Creates a new gitlet version control system in the current directory. 
-	This system will automatically start with one commit: a commit that contains no files 
-	and has the commit message initial commit.
-	RunTime: O(1)
-	*/
-	public void init(){
-		File gitFile = new File(GitPath);
-		if(gitFile.exists()){
-			System.out.println("A gitlet version control system already exists in the current directory.");
-		}else{
-			gitFile.mkdir();
-		}
-		//lastCommitedId += 1;
-		
-		//first commit
-	    File initial = new File(GitPath+"/0");
-	    initial.mkdir();
-	    commit("initial commit");
-	}
-
-	/*
-	 Usage: java Gitlet add [file name]
-	 Indicates you want the file to be included in the upcoming commit as having been changed.
-	 Adding a file is also called staging the file. If the file had been marked for removal, 
-	 instead just unmark it.
-	 RunTime: O(N)
-	*/
-	public void add(String fileName){
-		String fileName2 = GitPath+"/"+lastCommitedId+"/"+fileName;
-		File fileExist = new File(fileName);
-		File file2 = new File(fileName2);
-		
-		if(!fileExist.exists()){
-			System.out.println("file does not exists");
-		}
-
-		if(addList.contains(fileName)){
-			Path path1 = Paths.get(fileName2);
-			Path path2 = Paths.get(fileName);
-			if(file2.exists()){
-				try{
-					if(isSameContent(path1,path2)){
-						System.out.println("the same file ");
-					}else{
-						addList.add(fileName);
-						System.out.println("diffrent file");
-					}
-				}catch(IOException e){
-					e.printStackTrace();
-				}
-			}
-				 
-		}else{
-			addList.add(fileName);
-		}
-	} 
-
-	/*
-	 Saves a snapshot of certain files that can be viewed or restored at a later time.
-	 The files in a commit's snapshot come from two sources: files that were newly added 
-	 to this commit (staged prior to the commit), and files that were inherited from the previous commit.
-	 We'll refer to these two groups of files as "the commit's added files" and "the commit's old files" 
-	 respectively. In general, a new commit inherits all of the files in the previous commit as its old files
-	 (both the previous commit's added and old files). However, don't inherit files that were added to the new 
-	 commit, becuase the added file takes precedent over the old one. Remember that adding a file indicates you 
-	 want to save a new version of the file, so if you added the file it means that you don't need the old version 
-	 anymore.
-	 RunTime: O(N)
-	*/
-	 public void commit(String message){
-	 	
-	 	if(message.equals("null")){
-	 		System.out.println("Please enter a commit message");
-	 	}else if(addList.size() == 0 && message.equals("initial commit.")){
-	 		System.out.println("first commit.");
-	 	
-	 	}else{
-	 		//file that were newly added	
-	 		lastCommitedId += 1;
-	 		makeDir(GitPath+"/"+lastCommitedId);
-
-	 		for(String fileName : addList){
-	 			File source = new File(fileName);
-	 			String[] s = fileName.split("\\/");
-	 			File target = new File(GitPath+"/"+lastCommitedId+"/"+s[s.length-1]);
-	 			try{
-		 			Files.copy(source.toPath(),target.toPath(),StandardCopyOption.REPLACE_EXISTING);
-		 		}catch(IOException e){
-		 			System.out.println("There occurs an IOEception when commiting files");
-		 		}
-	 		}
-	 	}
-	 		String time = getTime();
-	 		List<String> commitList = new LinkedList<String>();
-
-	 		commitList.add("Commit "+lastCommitedId);
-	 		commitList.add(time);
-	 		commitList.add(message);
-	 		gitLog.put(lastCommitedId,commitList);
-	 		findCommitId.put(message,lastCommitedId);
-
-	 }
-
-	 /*remove file on stage*/
-	public void remove(String fileName){
-		if(!addList.contains(fileName)){
-			System.out.println(" No reason to remove the file.");
-		}
-
-		for(int i = 0;i < addList.size();i++){
-			if(addList.get(i).equals(fileName)){
-				addList.remove(i);
-				break;
-			}
-		}
-	}
-
-	/*log*/
-	public String log(){
-		int commitedId = lastCommitedId;
-		StringBuilder logString = new StringBuilder();
-		
-		while(commitedId >= 0){
-			//System.out.println("====");
-			logString.append("====");
-			logString.append("\n");
-			for(int i = 0 ; i < 3 ; i++){
-				logString.append(gitLog.get(commitedId).get(i));
-
-				logString.append("\n");
-
-			}
-
-			
-			logString.append("\n");
-			commitedId--;
-		}
-
-		return logString.toString();
-		
-	}
-
-	/*print out the id when gives the commit message*/
-	public void find(String message){
-		System.out.println(findCommitId.get(message));
-	}
-
-	/*1. restore the version of the file from the previous commit.*/
-	public void checkout(String fileName){
-
-		File target = new File(fileName);
-		String[] s = fileName.split("\\/");
-	 	File source = new File(GitPath+"/"+lastCommitedId+"/"+s[s.length-1]);
-	 	try{
-		 	Files.copy(source.toPath(),target.toPath(),StandardCopyOption.REPLACE_EXISTING);
-		 }catch(IOException e){
-		 	System.out.println("There occurs an IOEception when commiting files");
-		 }
-	}
-
 	public static void main(String[] args){
 
 		
@@ -274,12 +382,15 @@ public class Gitlet implements Serializable{
 				break;
 			case "commit": git.commit(args[1]);
 				break;
-			case "rm": git.remove(args[1]);
+			case "rm": git.rm(args[1]);
 				break;
 			case "log": String logcontent = git.log(); System.out.println(logcontent);
 				break;
-			case "checkout": git.checkout(args[1]);
+			case "checkout": git.checkBranch(args[1]);
 				break;
+			case "branch": git.branch(args[1]);
+				break;
+			//case "checkout": git.checkBranch(args[1]);
 			default: System.out.println("error command");
 				break;
 		}
