@@ -181,6 +181,8 @@ public class GitletPublicTest {
         String C = "C.txt"; 
 
         String AText = "fan";
+        String AText1  = "hello fan.";
+        String AText2 = "ff";
         String BText = "wug";
         String CText = "fantasy";
 
@@ -196,24 +198,23 @@ public class GitletPublicTest {
         gitlet("branch","fan");
         gitlet("checkout","fan");
 
+        writeFile(A,AText1);
+
         gitlet("add",A);
         gitlet("add",B);
         gitlet("commit",commitMessage2);
 
         gitlet("checkout","master");
 
+        writeFile(A,AText1);
+
         gitlet("add",A);
         gitlet("add",C);
         gitlet("commit",commitMessage3);
         
+        gitlet("merge","fan");
 
         String logContent = gitlet("log");
-        assertArrayEquals(new String[] { commitMessage3,commitMessage1 },
-                extractCommitMessages(logContent));
-        //gitlet("merge","fan");
-
-
-        logContent = gitlet("log");
         assertArrayEquals(new String[] { commitMessage3, commitMessage2, commitMessage1 },
                 extractCommitMessages(logContent));
 
@@ -294,6 +295,8 @@ public class GitletPublicTest {
                 extractCommitMessages(logContent));
      
     }
+
+    
     /**
      * Convenience method for calling Gitlet's main. Anything that is printed
      * out during this call to main will NOT actually be printed out, but will
